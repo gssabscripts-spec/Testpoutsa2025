@@ -1,0 +1,341 @@
+-- Load the Rayfield UI Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Create the Main UI Window
+Window = Rayfield:CreateWindow({
+    Name = "🧠 The GSSAB Steal A Brainrot Special [ULTIMATE]",
+    Icon = 0,
+    LoadingTitle = "The GSSAB Ultimate Bypass",
+    LoadingSubtitle = "For Delta Executor",
+    Theme = "Default",
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false,
+    ConfigurationSaving = {
+        Enabled = false,
+        FolderName = nil,
+        FileName = "GSSAB_BrainrotUltimate"
+    },
+    Discord = { Enabled = false },
+    KeySystem = false
+})
+
+-- Create Tabs
+local StealTab = Window:CreateTab("God Steal", 4483362458)
+local MiscTab = Window:CreateTab("God Mode / Misc", 4483362458)
+
+-- Variables
+local autoStealEnabled = false
+local tpDownGuiInstance = nil
+local levitateGuiInstance = nil
+local infiniteJumpEnabled = false
+local noclipEnabled = false
+
+-- Ultimate Anti-Cheat & Telemetry Bypass Hook
+pcall(function()
+    local mt = getrawmetatable(game)
+    setreadonly(mt, false)
+    local oldNamecall = mt.__namecall
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if method == "Kick" or method == "kick" or method == "Detect" or method == "Report" or method == "CheckPosition" or method == "TeleportDetect" then
+            return nil
+        end
+        return oldNamecall(self, ...)
+    end)
+    setreadonly(mt, true)
+end)
+
+-- God-Tier Global Map Steal (Bypasses distance limits entirely)
+local function globalGodSteal()
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then
+            local parentName = obj.Parent and obj.Parent.Name:lower() or ""
+            local actionText = obj.ActionText:lower()
+            
+            if string.find(actionText, "steal") or string.find(parentName, "brainrot") or string.find(parentName, "brain") then
+                pcall(function()
+                    fireproximityprompt(obj, 0)
+                end)
+            end
+        end
+    end
+end
+
+-- Teleport Down Function (Safely raycasts or shifts downward without rubberbanding)
+local function teleportDown()
+    local localPlayer = game:GetService("Players").LocalPlayer
+    local character = localPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+    local rootPart = character.HumanoidRootPart
+    
+    -- Cast a ray straight down to find the nearest ground, or drop down 30 studs safely
+    local rayOrigin = rootPart.Position
+    local rayDirection = Vector3.new(0, -250, 0)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {character}
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+
+    local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+
+    if raycastResult then
+        -- Smoothly adjust velocity to prevent anti-cheat velocity flags, then land on ground
+        rootPart.AssemblyLinearVelocity = Vector3.zero
+        rootPart.CFrame = CFrame.new(raycastResult.Position + Vector3.new(0, 3, 0)) * rootPart.CFrame.Rotation
+    else
+        -- Fallback if no ground is directly detected beneath
+        rootPart.AssemblyLinearVelocity = Vector3.zero
+        rootPart.CFrame = rootPart.CFrame - Vector3.new(0, 30, 0)
+    end
+end
+
+-- Rayfield UI Elements - Steal Tab
+StealTab:CreateButton({
+    Name = "Global Map Steal (Instant)",
+    Callback = function()
+        globalGodSteal()
+    end,
+})
+
+StealTab:CreateToggle({
+    Name = "Auto God Steal Loop",
+    CurrentValue = false,
+    Flag = "AutoStealToggle",
+    Callback = function(Value)
+        autoStealEnabled = Value
+        if autoStealEnabled then
+            task.spawn(function()
+                while autoStealEnabled do
+                    globalGodSteal()
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end,
+})
+
+-- Rayfield UI Elements - Misc Tab (Replaced platform with Teleport Down Toggle)
+MiscTab:CreateToggle({
+    Name = "Teleport Down Button",
+    CurrentValue = false,
+    Flag = "TPDownScreenToggle",
+    Callback = function(Value)
+        local CoreGui = game:GetService("CoreGui")
+
+        if Value then
+            if not tpDownGuiInstance then
+                tpDownGuiInstance = Instance.new("ScreenGui")
+                tpDownGuiInstance.Name = "GSSAB_TPDownGui"
+                tpDownGuiInstance.Parent = CoreGui
+
+                local screenButton = Instance.new("TextButton")
+                screenButton.Name = "TPDownButton"
+                screenButton.Size = UDim2.new(0, 160, 0, 50)
+                screenButton.Position = UDim2.new(0.80, 0, 0.25, 0)
+                screenButton.BackgroundColor3 = Color3.fromRGB(15, 15, 15) -- Pure Black
+                screenButton.TextColor3 = Color3.fromRGB(255, 255, 255)   -- Neon White Text
+                screenButton.TextSize = 18
+                screenButton.Font = Enum.Font.SourceSansBold
+                screenButton.Text = "TP Down"
+                screenButton.Active = true
+                screenButton.Draggable = true
+                screenButton.Parent = tpDownGuiInstance
+
+                local corner = Instance.new("UICorner")
+                corner.CornerRadius = UDim.new(0, 8)
+                corner.Parent = screenButton
+
+                -- Optional subtle neon stroke to highlight the white text
+                local stroke = Instance.new("UIStroke")
+                stroke.Color = Color3.fromRGB(255, 255, 255)
+                stroke.Thickness = 1.5
+                stroke.Parent = screenButton
+
+                screenButton.MouseButton1Click:Connect(function()
+                    teleportDown()
+                end)
+            else
+                tpDownGuiInstance.Enabled = true
+            end
+        else
+            if tpDownGuiInstance then
+                tpDownGuiInstance.Enabled = false
+            end
+        end
+    end,
+})
+
+-- Ultimate Levitate Feature
+MiscTab:CreateToggle({
+    Name = "Levitate (God Mode)",
+    CurrentValue = false,
+    Flag = "LevitateToggle",
+    Callback = function(Value)
+        local CoreGui = game:GetService("CoreGui")
+        local RunService = game:GetService("RunService")
+        local Players = game:GetService("Players")
+        local player = Players.LocalPlayer
+
+        local movingUp = false
+        local movingDown = false
+        local levitateConnection = nil
+        local bodyVelocity = nil
+
+        if Value then
+            if not levitateGuiInstance then
+                levitateGuiInstance = Instance.new("ScreenGui")
+                levitateGuiInstance.Name = "GSSAB_LevitateGui"
+                levitateGuiInstance.Parent = CoreGui
+
+                local upButton = Instance.new("TextButton")
+                upButton.Name = "LevitateUpButton"
+                upButton.Size = UDim2.new(0, 150, 0, 40)
+                upButton.Position = UDim2.new(0.80, 0, 0.12, 0)
+                upButton.BackgroundColor3 = Color3.fromRGB(50, 205, 50)
+                upButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+                upButton.TextSize = 15
+                upButton.Font = Enum.Font.SourceSansBold
+                upButton.Text = "▲ Float Up"
+                upButton.Active = true
+                upButton.Draggable = true
+                upButton.Parent = levitateGuiInstance
+
+                local upCorner = Instance.new("UICorner")
+                upCorner.CornerRadius = UDim.new(0, 8)
+                upCorner.Parent = upButton
+
+                upButton.MouseButton1Down:Connect(function() movingUp = true end)
+                upButton.MouseButton1Up:Connect(function() movingUp = false end)
+                upButton.MouseLeave:Connect(function() movingUp = false end)
+
+                local downButton = Instance.new("TextButton")
+                downButton.Name = "LevitateDownButton"
+                downButton.Size = UDim2.new(0, 150, 0, 40)
+                downButton.Position = UDim2.new(0.80, 0, 0.18, 0)
+                downButton.BackgroundColor3 = Color3.fromRGB(220, 20, 60)
+                downButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+                downButton.TextSize = 15
+                downButton.Font = Enum.Font.SourceSansBold
+                downButton.Text = "▼ Float Down"
+                downButton.Active = true
+                downButton.Draggable = true
+                downButton.Parent = levitateGuiInstance
+
+                local downCorner = Instance.new("UICorner")
+                downCorner.CornerRadius = UDim.new(0, 8)
+                downCorner.Parent = downButton
+
+                downButton.MouseButton1Down:Connect(function() movingDown = true end)
+                downButton.MouseButton1Up:Connect(function() movingDown = false end)
+                downButton.MouseLeave:Connect(function() movingDown = false end)
+            else
+                levitateGuiInstance.Enabled = true
+            end
+
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local rootPart = char.HumanoidRootPart
+                
+                bodyVelocity = Instance.new("BodyVelocity")
+                bodyVelocity.Name = "GSSAB_UltimateLevitate"
+                bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                bodyVelocity.Parent = rootPart
+            end
+
+            levitateConnection = RunService.RenderStepped:Connect(function()
+                local currentCharacter = player.Character
+                if currentCharacter and currentCharacter:FindFirstChild("HumanoidRootPart") and currentCharacter:FindFirstChildOfClass("Humanoid") then
+                    local humanoid = currentCharacter.Humanoid
+                    
+                    pcall(function()
+                        humanoid:ChangeState(Enum.HumanoidStateType.Swimming)
+                    end)
+
+                    if bodyVelocity then
+                        if movingUp then
+                            bodyVelocity.Velocity = Vector3.new(0, 35, 0)
+                        elseif movingDown then
+                            bodyVelocity.Velocity = Vector3.new(0, -35, 0)
+                        else
+                            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                        end
+                    end
+                end
+            end)
+        else
+            if levitateGuiInstance then
+                levitateGuiInstance.Enabled = false
+            end
+            if levitateConnection then
+                levitateConnection:Disconnect()
+            end
+            
+            local char = player.Character
+            if char then
+                if char:FindFirstChild("HumanoidRootPart") then
+                    local bv = char.HumanoidRootPart:FindFirstChild("GSSAB_UltimateLevitate")
+                    if bv then bv:Destroy() end
+                end
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    pcall(function()
+                        humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+                        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                    end)
+                end
+            end
+        end
+    end,
+})
+
+MiscTab:CreateToggle({
+    Name = "Undetected Infinite Jump",
+    CurrentValue = false,
+    Flag = "InfJumpToggle",
+    Callback = function(Value)
+        infiniteJumpEnabled = Value
+    end,
+})
+
+MiscTab:CreateToggle({
+    Name = "Noclip (Walk Through Walls)",
+    CurrentValue = false,
+    Flag = "NoclipToggle",
+    Callback = function(Value)
+        noclipEnabled = Value
+    end,
+})
+
+-- Noclip RunService Loop
+local RunService = game:GetService("RunService")
+RunService.Stepped:Connect(function()
+    if noclipEnabled then
+        local localPlayer = game:GetService("Players").LocalPlayer
+        local char = localPlayer.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+-- Isolated Clean Jump Hook
+local UserInputService = game:GetService("UserInputService")
+UserInputService.JumpRequest:Connect(function()
+    if infiniteJumpEnabled then
+        local localPlayer = game:GetService("Players").LocalPlayer
+        local character = localPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = character.HumanoidRootPart
+            rootPart.AssemblyLinearVelocity = Vector3.new(
+                rootPart.AssemblyLinearVelocity.X,
+                45,
+                rootPart.AssemblyLinearVelocity.Z
+            )
+        end
+    end
+end)
